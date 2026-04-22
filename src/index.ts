@@ -5,7 +5,7 @@ import { authMiddleware } from "./auth.js";
 import { logger } from "./logger.js";
 import { registerWhiteboard } from "./rooms/whiteboard.js";
 
-const PORT = Number(process.env.PORT ?? 3001);
+const PORT = Number(process.env.PORT ?? 3333);
 const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? "*")
   .split(",")
   .map((s) => s.trim())

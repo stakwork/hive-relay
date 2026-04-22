@@ -1,12 +1,13 @@
 import jwt from "jsonwebtoken";
 import type { Socket } from "socket.io";
-import type { ExtendedError } from "socket.io/dist/namespace.js";
 import { logger } from "./logger.js";
 import type { AuthedUserClaims } from "./types.js";
 
-const SECRET = process.env.JWT_SECRET;
+type NextFn = (err?: Error) => void;
+
+const SECRET = process.env.SWARM_API_KEY;
 if (!SECRET) {
-  throw new Error("JWT_SECRET not set");
+  throw new Error("SWARM_API_KEY not set");
 }
 
 declare module "socket.io" {
@@ -15,10 +16,7 @@ declare module "socket.io" {
   }
 }
 
-export function authMiddleware(
-  socket: Socket,
-  next: (err?: ExtendedError) => void,
-) {
+export function authMiddleware(socket: Socket, next: NextFn) {
   const token = socket.handshake.auth?.token;
   if (typeof token !== "string" || !token) {
     return next(new Error("unauthenticated"));
