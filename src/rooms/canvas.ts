@@ -4,8 +4,9 @@ import type { RosterEntry } from "../types.js";
 
 /**
  * Org-canvas collaboration room. Same shape as the whiteboard room —
- * roster + join/leave + cursor presence. Pure relay: no persistence here
- * (durability lives in hive's Postgres).
+ * roster + join/leave + cursor presence — plus a binary `yupdate`
+ * passthrough that the Yjs collaboration layer uses later. Pure relay:
+ * no persistence here (durability lives in hive's Postgres).
  *
  * The room is derived from the JWT `resource` claim (`canvas:<id>`, where
  * `<id>` is the org's githubLogin). The server enforces the room from the
@@ -21,6 +22,11 @@ interface CanvasCursorPayload {
   /** Which sub-canvas the cursor/selection is on ("" = root). The room is
    *  per-org, so peers filter to the ref they're currently viewing. */
   canvasRef?: string;
+}
+
+interface YUpdatePayload {
+  /** Binary Yjs update (Socket.IO transports Uint8Array natively). */
+  update: Uint8Array;
 }
 
 export function registerCanvas(io: Server) {
@@ -81,6 +87,15 @@ export function registerCanvas(io: Server) {
         selectedNodeId: payload.selectedNodeId ?? null,
         canvasRef: payload.canvasRef ?? "",
         username: user.name,
+      });
+    });
+
+    // Binary Yjs update passthrough (used by the collab layer). No cap
+    // concern — the server's maxHttpBufferSize is 10MB.
+    socket.on("yupdate", (payload: YUpdatePayload) => {
+      socket.to(room).emit("yupdate", {
+        senderId: socket.id,
+        update: payload.update,
       });
     });
 

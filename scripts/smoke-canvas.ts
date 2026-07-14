@@ -28,6 +28,10 @@ function client(label: string, userId: string, resource: string): Socket {
     received[label].push({ type: "cursor", ...e });
     console.log(`  [${label}] cursor from=${e.senderId} at=(${e.cursor?.x},${e.cursor?.y}) sel=${e.selectedNodeId}`);
   });
+  s.on("yupdate", (e) => {
+    received[label].push({ type: "yupdate", n: e.update?.length });
+    console.log(`  [${label}] yupdate from=${e.senderId} bytes=${e.update?.byteLength ?? e.update?.length}`);
+  });
   return s;
 }
 
@@ -40,8 +44,9 @@ async function run() {
   const bob = client("Bob", "u-bob", "canvas:smoketest");
   await wait(500);
 
-  console.log("--- Alice emits cursor:update (Bob should get it) ---");
+  console.log("--- Alice emits cursor:update + yupdate (Bob should get both) ---");
   alice.emit("cursor:update", { cursor: { x: 12, y: 34 }, color: "#FF6B6B", selectedNodeId: "n1" });
+  alice.emit("yupdate", { update: new Uint8Array([1, 2, 3, 4, 5]) });
   await wait(400);
 
   console.log("--- Carol on a DIFFERENT canvas (should get nothing) ---");
@@ -52,16 +57,18 @@ async function run() {
 
   // Assertions
   const bobCursor = received["Bob"].some((m: any) => m.type === "cursor" && m.selectedNodeId === "n1");
+  const bobYupdate = received["Bob"].some((m: any) => m.type === "yupdate" && m.n === 5);
   const carolIsolated = received["Carol"].length === 0;
 
   console.log("\n=== results ===");
   console.log("  Bob received cursor+selection:", bobCursor ? "PASS" : "FAIL");
+  console.log("  Bob received yupdate (5 bytes):", bobYupdate ? "PASS" : "FAIL");
   console.log("  Carol isolated (other canvas):", carolIsolated ? "PASS" : "FAIL");
 
   alice.disconnect();
   bob.disconnect();
   carol.disconnect();
-  const ok = bobCursor && carolIsolated;
+  const ok = bobCursor && bobYupdate && carolIsolated;
   console.log(ok ? "\nALL PASS" : "\nFAILED");
   process.exit(ok ? 0 : 1);
 }
