@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import { authMiddleware } from "./auth.js";
 import { logger } from "./logger.js";
 import { registerWhiteboard } from "./rooms/whiteboard.js";
+import { registerCanvas } from "./rooms/canvas.js";
 
 const PORT = Number(process.env.PORT ?? 3333);
 const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? "*")
@@ -28,6 +29,16 @@ const io = new Server(httpServer, {
 
 io.use(authMiddleware);
 registerWhiteboard(io);
+registerCanvas(io);
+
+// Fallback: disconnect any socket whose resource matches no known room
+// type (each room handler above ignores non-matching resources).
+io.on("connection", (socket) => {
+  const resource: string = socket.data.user?.resource ?? "";
+  if (!resource.startsWith("whiteboard:") && !resource.startsWith("canvas:")) {
+    socket.disconnect(true);
+  }
+});
 
 httpServer.listen(PORT, () => {
   logger.info({ port: PORT, cors: CORS_ORIGIN }, "hive-relay listening");

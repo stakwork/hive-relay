@@ -12,8 +12,9 @@ export function registerWhiteboard(io: Server) {
   io.on("connection", (socket: Socket) => {
     const user = socket.data.user;
 
+    // Not a whiteboard socket — let another room handler take it. (A
+    // fallback in index.ts disconnects sockets no room claims.)
     if (!user.resource.startsWith(RESOURCE_PREFIX)) {
-      socket.disconnect(true);
       return;
     }
 
