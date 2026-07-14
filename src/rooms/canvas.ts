@@ -25,6 +25,9 @@ interface CanvasCursorPayload {
 }
 
 interface YUpdatePayload {
+  /** Which sub-canvas this update belongs to ("" = root). The room is
+   *  per-org, so peers apply it to the matching per-ref doc. */
+  ref?: string;
   /** Binary Yjs update (Socket.IO transports Uint8Array natively). */
   update: Uint8Array;
 }
@@ -95,6 +98,7 @@ export function registerCanvas(io: Server) {
     socket.on("yupdate", (payload: YUpdatePayload) => {
       socket.to(room).emit("yupdate", {
         senderId: socket.id,
+        ref: payload.ref ?? "",
         update: payload.update,
       });
     });
