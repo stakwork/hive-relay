@@ -12,6 +12,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build and push hive-relay image
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     steps:
@@ -42,12 +46,31 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             docker buildx build \
               --no-cache \
+              --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+              --label org.opencontainers.image.revision=${{ github.sha }} \
               --platform linux/amd64 ./
           else
             docker buildx build \
               --cache-to "type=local,dest=/tmp/.buildx-cache" \
               --platform linux/amd64 \
+              --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+              --label org.opencontainers.image.revision=${{ github.sha }} \
               --tag "sphinxlightning/hive-relay:${{ env.RELEASE_TAG }}" \
               --tag "sphinxlightning/hive-relay:latest" \
               --output "type=registry" ./
           fi
+
+      - name: Resolve pushed image digest
+        if: github.event_name != 'pull_request'
+        id: digest
+        run: |
+          echo "digest=$(docker buildx imagetools inspect sphinxlightning/hive-relay:${{ env.RELEASE_TAG }} --format '{{.Manifest.Digest}}')" >> "$GITHUB_OUTPUT"
+
+      # Verify with: gh attestation verify oci://index.docker.io/sphinxlightning/hive-relay@sha256:<digest> --owner stakwork
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: index.docker.io/sphinxlightning/hive-relay
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
